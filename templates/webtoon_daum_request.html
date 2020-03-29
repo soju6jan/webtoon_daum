@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div>
+  <form id='program_list'>
+    {{ macros.setting_input_text_and_buttons('code', '작품 Code', [['analysis_btn', '분석'], ['go_btn', 'Go 웹툰']], desc=['http://webtoon.daum.net/webtoon/view/ 뒤에 있는 웹툰 코드']) }}
+  </form>
+  <form id="program_auto_form">
+  <div id='detail'></div>
+  <form>
+</div>
+
+<script type="text/javascript">
+var package_name = "{{arg['package_name'] }}";
+var current_data = null;
+
+$(document).ready(function(){
+  //$('input[name=login_type]')[0].checked = true;
+  if ( "{{arg['recent_title_id']}}" != "None" && "{{arg['recent_title_id']}}" != "" ) {
+    document.getElementById("code").value = "{{arg['recent_title_id']}}";
+    document.getElementById("analysis_btn").click();
+  }
+});
+
+
+$("body").on('click', '#analysis_btn', function(e){
+  e.preventDefault();
+  nickname = document.getElementById("code").value
+  document.getElementById("detail").innerHTML = '';
+  $.ajax({
+    url: '/' + package_name + '/ajax/analysis',
+    type: "POST",
+    cache: false,
+    data: {nickname:nickname},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret == 'success') {
+        make_program(data)
+      } else {
+        $.notify('<strong>분석 실패</strong><br>' + data.log, {
+          type: 'warning'
+        });
+      }
+    }
+  });
+});
+
+
+$("body").on('click', '#go_btn', function(e){
+  e.preventDefault();
+  window.open("http://webtoon.daum.net", "_blank");
+});
+
+
+function make_program(data) {
+  //console.log(data)
+  current_data = data
+  str = '';
+
+  tmp = m_button('check_download_btn', '선택 다운로드 추가', []);
+  tmp += m_button('all_check_on_btn', '전체 선택', []);
+  tmp += m_button('all_check_off_btn', '전체 해제', []);
+  tmp = m_button_group(tmp)
+  str += tmp
+
+  // program
+  str += m_hr_black();
+  str += m_row_start(0);
+  tmp = ''
+  if (data.image != null) 
+    tmp = '<img src="' + data.image + '" class="img-fluid">';
+  str += m_col(3, tmp)
+  tmp = ''
+  tmp += m_row_start(0);
+  tmp += m_col(3, '제목/작가', 'right');
+  tmp += m_col(9, data.title + ' / ' + data.author);
+  tmp += m_row_end();
+  tmp += m_row_start(0);
+  tmp += m_col(3, '설명', 'right');
+  tmp += m_col(9, data.desc);
+  tmp += m_row_end();
+  
+  str += m_col(9, tmp)
+  str += m_row_end();
+  str += m_hr_black();
+
+  
+  for (i in data.episodes) {
+    str += m_row_start(0);
+    str += m_col(1, data.episodes[i].episode_idx)
+
+    if (data.episodes[i].price == 0) {
+      tmp = '<div class="form-inline">'
+      tmp += '<input id="checkbox_'+i+'" name="checkbox_'+i+'" type="checkbox" checked data-toggle="toggle" data-on="선 택" data-off="-" data-onstyle="success" data-offstyle="danger" data-size="small">&nbsp;&nbsp;&nbsp;&nbsp;'
+      tmp += m_button('add_queue_btn', '다운로드 추가', [{'key':'episode_id', 'value':data.episodes[i].episode_id}, {'key':'episode_title', 'value':data.episodes[i].episode_title}, {'key':'episode_idx', 'value':data.episodes[i].episode_idx}])
+      tmp += '</div>'
+    } else {
+      tmp = '유료 : ' + data.episodes[i].price
+    }
+    
+    str += m_col(6, '<strong>' + data.episodes[i].episode_title+ '</strong>')
+    str += m_col(2, data.episodes[i].date)
+    str += m_col(3, tmp, 'center')
+    //str += m_col(9, tmp)
+    str += m_row_end();
+    if (i != data.episodes.length -1) str += m_hr(0);
+  }
+  document.getElementById("detail").innerHTML = str;
+  $('input[id^="checkbox_"]').bootstrapToggle()
+}
+
+
+$("body").on('click', '#check_download_btn', function(e){
+  e.preventDefault();
+  all = $('input[id^="checkbox_"]')
+  str = ""
+  for (i in all) {
+    if (all[i].checked){
+      no = all[i].id.split('_')[1]
+      c = current_data.episodes[no]
+      str += c.episode_id + '|' + c.episode_idx +  '|' + c.episode_title  + "||"
+    }
+  }
+  if (str == "") {
+    $.notify('<strong>선택하세요.</strong>', {
+      type: 'warning'
+    });
+    return
+  }
+
+  //console.log(str)
+  $.ajax({
+    url: '/' + package_name + '/ajax/add_queue_check',
+    type: "POST", 
+    cache: false,
+    data: {toon_title:current_data.title, toon_nickname:current_data.nickname, data:str},
+    dataType: "json",
+    success: function (data) {
+      if (data.ret == 'success') {
+        $.notify('<strong>'+data.log+'개를 추가하였습니다.</strong>', {
+          type: 'success'
+        });
+      } else {
+        $.notify('<strong>'+data.log+'</strong>', {
+          type: 'warning'
+        });
+      }
+    }
+  });
+});
+
+
+$("body").on('click', '#all_check_on_btn', function(e){
+  e.preventDefault();
+  $('input[id^="checkbox_"]').bootstrapToggle('on')
+});
+
+$("body").on('click', '#all_check_off_btn', function(e){
+  e.preventDefault();
+  $('input[id^="checkbox_"]').bootstrapToggle('off')
+});
+
+
+$("body").on('click', '#add_queue_btn', function(e){
+  e.preventDefault();
+  $.ajax({
+    url: '/' + package_name + '/ajax/add_queue',
+    type: "POST", 
+    cache: false,
+    data: {episode_id:$(this).data('episode_id'), episode_title:$(this).data('episode_title'), episode_idx:$(this).data('episode_idx'), toon_title:current_data.title, toon_nickname:current_data.nickname},
+    dataType: "json",
+    success: function (data) {
+      if (data == 'success') {
+        $.notify('<strong>큐에 추가 하였습니다.</strong>', {
+          type: 'success'
+        });
+      } else {
+        $.notify('<strong>실패하였습니다.</strong>', {
+          type: 'warning'
+        });
+      }
+    }
+  });
+});
+
+</script>
+{% endblock %}
