@@ -195,7 +195,10 @@ class LogicNormal(object):
             ret['id'] = data['data']['webtoon']['id']
             ret['image'] = data['data']['webtoon']['pcThumbnailImage']['url']
             ret['desc'] = data['data']['webtoon']['introduction']
-            ret['author'] = data['data']['webtoon']['cp']['name']
+            try:
+                ret['author'] = data['data']['webtoon']['cp']['name']
+            except:
+                ret['author'] = ''
 
             ret['episodes'] = []
             for epi in data['data']['webtoon']['webtoonEpisodes']:
