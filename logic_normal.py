@@ -114,7 +114,7 @@ class LogicNormal(object):
 
     @staticmethod
     def entity_update(entity):
-        import plugin
+        from . import plugin
         plugin.socketio_callback('queue_one', entity, encoding=False)
     
 
